@@ -1,40 +1,61 @@
 import "dotenv/config";
 
-import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
-import { TaskType } from "@google/generative-ai";
+import {
+  generateAnswer,
+} from "./services/chatService.js";
 
-const embeddings = new GoogleGenerativeAIEmbeddings({
-  apiKey: process.env.GEMINI_API_KEY,
-  model: "gemini-embedding-001",
-  taskType: TaskType.RETRIEVAL_DOCUMENT,
+async function main() {
+  const question =
+    "What products does Apple sell?";
+
+  console.log("\n==============================");
+  console.log("FINRAG TEST");
+  console.log("==============================");
+
+  console.log("\nQuestion:");
+  console.log(question);
+
+  const result =
+    await generateAnswer(question);
+
+  console.log("\n==============================");
+  console.log("ANSWER");
+  console.log("==============================");
+
+  console.log(result.answer);
+
+  console.log("\n==============================");
+  console.log("SOURCES");
+  console.log("==============================");
+
+  result.sources.forEach(
+    (source, index) => {
+      console.log(
+        `\n${index + 1}. ${source.id}`
+      );
+
+      console.log(
+        "Score:",
+        source.score
+      );
+
+      console.log(
+        "Section:",
+        source.section
+      );
+
+      console.log(
+        "Source:",
+        source.sourceUrl
+      );
+    }
+  );
+}
+
+main().catch((error) => {
+  console.error(
+    "\nRAG test failed:"
+  );
+
+  console.error(error);
 });
-
-const text = "Apple reported cybersecurity risks in its annual filing.";
-
-console.log("Testing embedQuery...");
-
-const queryVector = await embeddings.embedQuery(text);
-
-console.log("Query vector length:", queryVector.length);
-
-console.log("\nTesting embedDocuments...");
-
-const documentVectors = await embeddings.embedDocuments([
-  text,
-  "Apple's revenue increased during the fiscal year."
-]);
-
-console.log(
-  "Document vectors length:",
-  documentVectors.length
-);
-
-console.log(
-  "First document vector length:",
-  documentVectors[0]?.length
-);
-
-console.log(
-  "Second document vector length:",
-  documentVectors[1]?.length
-);

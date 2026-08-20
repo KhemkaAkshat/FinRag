@@ -189,5 +189,41 @@ export async function storeDocuments(documents) {
 
   return uploaded;
 }
+async function generateQueryEmbedding(query) {
+  const response = await ai.models.embedContent({
+    model: EMBEDDING_MODEL,
+    contents: [query],
+    config: {
+      taskType: "RETRIEVAL_QUERY",
+      outputDimensionality: 3072,
+    },
+  });
 
+  if (
+    !response.embeddings ||
+    response.embeddings.length === 0
+  ) {
+    throw new Error(
+      "Gemini returned no query embedding."
+    );
+  }
+
+  return response.embeddings[0].values;
+}
+
+export async function searchDocuments(
+  query,
+  topK = 5
+) {
+  const queryVector =
+    await generateQueryEmbedding(query);
+
+  const results = await index.query({
+    vector: queryVector,
+    topK,
+    includeMetadata: true,
+  });
+
+  return results.matches || [];
+}
 
