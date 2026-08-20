@@ -4,7 +4,7 @@ import {
   inspectFilingStructure
 } from "./documentService.js";
 import "dotenv/config";
-import { createRagDocuments, embedDocument } from "./ragService.js";
+import { createRagDocuments, storeDocuments } from "./ragService.js";
 
 const SEC_COMPANY_URL =
   "https://www.sec.gov/files/company_tickers.json";
@@ -183,10 +183,14 @@ const documents = await createRagDocuments(
 );
 
 console.log("\n==============================");
-console.log("EMBEDDING TEST");
+console.log("PINECONE INGESTION");
 console.log("==============================");
 
-const vector = await embedDocument(documents[0]);
+console.log(
+  "Documents to store:",
+  documents.length
+);
 
-console.log("Vector length:", vector.length);
-console.log("First 10 values:", vector.slice(0, 10));
+await storeDocuments(documents);
+
+console.log("Documents successfully stored in Pinecone!");
