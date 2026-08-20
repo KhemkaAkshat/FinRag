@@ -1,6 +1,8 @@
+import { chunkSections } from "./chunkService.js";
 import {
   extractTextFromHtml,
-  extractSections
+  extractSections,
+  inspectFilingStructure
 } from "./documentService.js";
 
 const SEC_COMPANY_URL =
@@ -161,26 +163,36 @@ const filing = await downloadFiling({
 console.log("Filing URL:");
 console.log(filing.url);
 
+inspectFilingStructure(filing.html);
+
 const cleanText = extractTextFromHtml(filing.html);
-const sectionPattern = /ITEM\s+\d+[A-Z]?\.\s+[^]+?/gi;
 
 const sections = extractSections(cleanText);
+const chunks = chunkSections(
+  sections,
+  {
+    company: financialData.company,
+    ticker: financialData.ticker[0],
+    cik: financialData.cik,
+    filingType: latest10K.form,
+    filingDate: latest10K.filingDate,
+    reportDate: latest10K.reportDate,
+    sourceUrl: filing.url
+  }
+);
 
-console.log("\nNumber of sections:", sections.length);
+console.log("\n==============================");
+console.log("CHUNKING RESULT");
+console.log("==============================");
 
-for (const section of sections.slice(0, 5)) {
-  console.log("\n==============================");
-  console.log(`ITEM ${section.item}`);
-  console.log("==============================");
+console.log("Sections:", sections.length);
+console.log("Total chunks:", chunks.length);
 
-  console.log(section.text.slice(0, 500));
-}
+console.log("\nFIRST CHUNK:");
+console.log(chunks[0]);
 
-// console.log("\nPossible sections:\n");
+console.log("\nSECOND CHUNK:");
+console.log(chunks[1]);
 
-// console.log(matches?.slice(0, 30));
-// console.log("Clean text length:");
-// console.log(cleanText.length);
-
-// console.log("\nFIRST 3000 CHARACTERS:\n");
-// console.log(cleanText.slice(0, 3000));
+console.log("\nLAST CHUNK:");
+console.log(chunks[chunks.length - 1]);
