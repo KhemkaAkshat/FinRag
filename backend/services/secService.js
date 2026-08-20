@@ -1,9 +1,10 @@
-import { chunkSections } from "./chunkService.js";
 import {
   extractTextFromHtml,
   extractSections,
   inspectFilingStructure
 } from "./documentService.js";
+import "dotenv/config";
+import { createRagDocuments, embedDocument } from "./ragService.js";
 
 const SEC_COMPANY_URL =
   "https://www.sec.gov/files/company_tickers.json";
@@ -168,7 +169,7 @@ inspectFilingStructure(filing.html);
 const cleanText = extractTextFromHtml(filing.html);
 
 const sections = extractSections(cleanText);
-const chunks = chunkSections(
+const documents = await createRagDocuments(
   sections,
   {
     company: financialData.company,
@@ -182,17 +183,10 @@ const chunks = chunkSections(
 );
 
 console.log("\n==============================");
-console.log("CHUNKING RESULT");
+console.log("EMBEDDING TEST");
 console.log("==============================");
 
-console.log("Sections:", sections.length);
-console.log("Total chunks:", chunks.length);
+const vector = await embedDocument(documents[0]);
 
-console.log("\nFIRST CHUNK:");
-console.log(chunks[0]);
-
-console.log("\nSECOND CHUNK:");
-console.log(chunks[1]);
-
-console.log("\nLAST CHUNK:");
-console.log(chunks[chunks.length - 1]);
+console.log("Vector length:", vector.length);
+console.log("First 10 values:", vector.slice(0, 10));
