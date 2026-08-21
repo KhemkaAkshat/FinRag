@@ -1,7 +1,6 @@
 import {
   extractTextFromHtml,
-  extractSections,
-  inspectFilingStructure
+  extractSections
 } from "./documentService.js";
 import "dotenv/config";
 import { createRagDocuments, storeDocuments } from "./ragService.js";
@@ -163,8 +162,6 @@ const filing = await downloadFiling({
 
 console.log("Filing URL:");
 console.log(filing.url);
-
-inspectFilingStructure(filing.html);
 
 const cleanText = extractTextFromHtml(filing.html);
 

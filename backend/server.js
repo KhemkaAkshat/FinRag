@@ -1,21 +1,9 @@
-import express from "express";
-import dotenv from "dotenv";
+import { createApp } from "./app.js";
+import { getConfig } from "./config.js";
 
-dotenv.config();
+const config = getConfig();
+const app = createApp({ allowedOrigins: config.allowedOrigins });
 
-const app = express();
-
-app.use(express.json());
-
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "ok",
-    message: "FinRAG backend is running"
-  });
-});
-
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`FinRAG backend running on port ${PORT}`);
+app.listen(config.port, () => {
+  console.log(`FinRAG backend running on port ${config.port}`);
 });
