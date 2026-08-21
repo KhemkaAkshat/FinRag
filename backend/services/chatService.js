@@ -75,7 +75,10 @@ ${context}
   const sources = matches.map(
     (match) => ({
       id: match.id,
-      score: match.score,
+      score: match.rrfScore,
+      rrfScore: match.rrfScore,
+      vectorScore: match.vectorScore,
+      bm25Score: match.bm25Score,
       company:
         match.metadata?.company,
       ticker:

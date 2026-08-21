@@ -3,6 +3,8 @@ import "dotenv/config";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { GoogleGenAI } from "@google/genai";
 import { Pinecone } from "@pinecone-database/pinecone";
+import { searchBM25, loadBM25Index } from "./bm25Service.js";
+import { buildMetadataFilter, reciprocalRankFusion } from "./retrievalService.js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -213,17 +215,53 @@ async function generateQueryEmbedding(query) {
 
 export async function searchDocuments(
   query,
-  topK = 5
+  topK = 5,
+  filters = {}
 ) {
   const queryVector =
     await generateQueryEmbedding(query);
 
-  const results = await index.query({
-    vector: queryVector,
-    topK,
-    includeMetadata: true,
-  });
+  const queryOptions = {
+      vector: queryVector,
+      topK: 10,
+      includeMetadata: true,
+  };
+  const metadataFilter = buildMetadataFilter(filters);
+  if (Object.keys(metadataFilter).length > 0) queryOptions.filter = metadataFilter;
 
-  return results.matches || [];
+  const vectorResults = await index.query(queryOptions);
+
+  const pineconeMatches =
+    vectorResults.matches || [];
+
+  const bm25Ready =
+    await loadBM25Index();
+
+  if (!bm25Ready) {
+    throw new Error(
+      "BM25 index has not been built."
+    );
+  }
+
+  const bm25Matches = searchBM25(query, 10, metadataFilter);
+
+  console.log(
+    "\nPinecone results:",
+    pineconeMatches.length
+  );
+
+  console.log(
+    "BM25 results:",
+    bm25Matches.length
+  );
+
+  const hybridResults = reciprocalRankFusion(pineconeMatches, bm25Matches, topK);
+
+  console.log(
+    "Hybrid results:",
+    hybridResults.length
+  );
+
+  return hybridResults;
 }
 
