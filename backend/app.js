@@ -1,9 +1,11 @@
 import express from "express";
 import { chatController } from "./controllers/chatController.js";
 import chatRoutes from "./routes/chatRoutes.js";
-import { createRateLimiter } from "./middleware/rateLimit.js";
+import { createRateLimiter, createRedisRateLimiter } from "./middleware/rateLimit.js";
+import { createAuthMiddleware } from "./middleware/auth.js";
+import { getRedisClient } from "./services/redisService.js";
 
-export function createApp({ generateAnswer, allowedOrigins = [], rateLimit } = {}) {
+export function createApp({ generateAnswer, allowedOrigins = [], rateLimit, auth, redis = getRedisClient() } = {}) {
   const app = express();
   app.disable("x-powered-by");
 
@@ -23,7 +25,7 @@ export function createApp({ generateAnswer, allowedOrigins = [], rateLimit } = {
     }
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     if (req.method === "OPTIONS") return res.status(204).end();
     return next();
@@ -31,7 +33,8 @@ export function createApp({ generateAnswer, allowedOrigins = [], rateLimit } = {
 
   app.use(express.json({ limit: "32kb" }));
   app.get("/api/health", (req, res) => res.json({ success: true, data: { status: "ok", message: "FinRAG backend is running" } }));
-  app.use("/api/chat", createRateLimiter(rateLimit), chatRoutes({ generateAnswer }));
+  const limiter = redis ? createRedisRateLimiter({ ...rateLimit, redis }) : createRateLimiter(rateLimit);
+  app.use("/api/chat", createAuthMiddleware(auth), limiter, chatRoutes({ generateAnswer }));
 
   app.use((req, res) => res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Route not found." } }));
   app.use((error, req, res, next) => {

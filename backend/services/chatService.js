@@ -6,6 +6,7 @@ import { searchDocuments } from "./ragService.js";
 import { extractQueryFilters } from "./queryUnderstandingService.js";
 import { getOperationalSettings } from "../config.js";
 import { createSingleFlightCache, createTtlCache, UpstreamServiceError, withRetry } from "./resilienceService.js";
+import { createRedisCache, getRedisClient } from "./redisService.js";
 
 const CHAT_MODEL = "gemini-3.5-flash";
 const settings = getOperationalSettings();
@@ -22,8 +23,20 @@ function getGeminiClient() {
   ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   return ai;
 }
+const memoryCache = createTtlCache({ ttlMs: settings.cacheTtlMs, maxEntries: settings.cacheMaxEntries });
+const remoteCache = createRedisCache({ client: getRedisClient(), ttlMs: settings.cacheTtlMs });
 const answerCache = createSingleFlightCache({
-  cache: createTtlCache({ ttlMs: settings.cacheTtlMs, maxEntries: settings.cacheMaxEntries }),
+  cache: {
+    async get(key) {
+      const remote = await remoteCache.get(key);
+      return remote === undefined ? memoryCache.get(key) : remote;
+    },
+    async set(key, value) {
+      memoryCache.set(key, value);
+      await remoteCache.set(key, value);
+    },
+    clear() { memoryCache.clear(); },
+  },
   keyFor: (question) => question.trim().replace(/\s+/g, " ").toLowerCase(),
 });
 

@@ -98,12 +98,12 @@ export function createSingleFlightCache({ cache = createTtlCache(), keyFor = (va
   return {
     async getOrCreate(value, factory) {
       const key = keyFor(value);
-      const cached = cache.get(key);
+      const cached = await cache.get(key);
       if (cached !== undefined) return cached;
       if (pending.has(key)) return pending.get(key);
 
-      const promise = Promise.resolve().then(factory).then((result) => {
-        cache.set(key, result);
+      const promise = Promise.resolve().then(factory).then(async (result) => {
+        await cache.set(key, result);
         return result;
       }).finally(() => pending.delete(key));
       pending.set(key, promise);

@@ -1,4 +1,5 @@
 import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata = {
   title: "FinRAG — SEC filing intelligence",
@@ -6,5 +7,7 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  return <html lang="en"><body>{children}</body></html>;
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const content = publishableKey ? <ClerkProvider publishableKey={publishableKey}>{children}</ClerkProvider> : children;
+  return <html lang="en"><body>{content}</body></html>;
 }
