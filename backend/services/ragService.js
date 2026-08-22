@@ -5,12 +5,17 @@ import { GoogleGenAI } from "@google/genai";
 import { Pinecone } from "@pinecone-database/pinecone";
 import { searchBM25, loadBM25Index } from "./bm25Service.js";
 import { buildMetadataFilter, reciprocalRankFusion } from "./retrievalService.js";
+import { getOperationalSettings } from "../config.js";
+import { withRetry } from "./resilienceService.js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
 const EMBEDDING_MODEL = "gemini-embedding-001";
+const PINECONE_CANDIDATE_COUNT = 10;
+const BM25_CANDIDATE_COUNT = 20;
+const settings = getOperationalSettings();
 
 const splitter = new RecursiveCharacterTextSplitter({
   chunkSize: 1200,
@@ -22,6 +27,15 @@ const pinecone = new Pinecone({
 });
 
 const index = pinecone.index(process.env.PINECONE_INDEX_NAME);
+
+function pineconeRequest(label, operation) {
+  return withRetry(operation, {
+    label: `Pinecone ${label}`,
+    timeoutMs: settings.requestTimeoutMs,
+    maxAttempts: settings.retryMaxAttempts,
+    baseDelayMs: settings.retryBaseDelayMs,
+  });
+}
 
 export async function createRagDocuments(sections, metadata) {
   const documents = [];
@@ -45,14 +59,14 @@ export async function createRagDocuments(sections, metadata) {
 }
 
 async function generateEmbeddings(texts) {
-  const response = await ai.models.embedContent({
-    model: EMBEDDING_MODEL,
-    contents: texts,
-    config: {
-      taskType: "RETRIEVAL_DOCUMENT",
-      outputDimensionality: 3072,
-    },
-  });
+  const response = await withRetry(
+    () => ai.models.embedContent({
+      model: EMBEDDING_MODEL,
+      contents: texts,
+      config: { taskType: "RETRIEVAL_DOCUMENT", outputDimensionality: 3072 },
+    }),
+    { label: "Gemini document embeddings", timeoutMs: settings.requestTimeoutMs, maxAttempts: settings.retryMaxAttempts, baseDelayMs: settings.retryBaseDelayMs },
+  );
 
   if (!response.embeddings || response.embeddings.length === 0) {
     throw new Error("Gemini returned no embeddings.");
@@ -72,9 +86,7 @@ async function getExistingRecordIds(ids) {
       continue;
     }
 
-    const result = await index.fetch({
-      ids: batch,
-    });
+    const result = await pineconeRequest("fetch", () => index.fetch({ ids: batch }));
 
     for (const id of Object.keys(result.records || {})) {
       existingIds.add(id);
@@ -174,9 +186,7 @@ export async function storeDocuments(documents) {
 
     console.log("Uploading to Pinecone...");
 
-    await index.upsert({
-      records: pineconeRecords,
-    });
+    await pineconeRequest("upsert", () => index.upsert({ records: pineconeRecords }));
 
     uploaded += batch.length;
 
@@ -185,21 +195,21 @@ export async function storeDocuments(documents) {
 
   console.log("\nIngestion complete.");
 
-  const stats = await index.describeIndexStats();
+  const stats = await pineconeRequest("describe index", () => index.describeIndexStats());
 
   console.log("Pinecone stats:", stats);
 
   return uploaded;
 }
 export async function generateQueryEmbedding(query) {
-  const response = await ai.models.embedContent({
-    model: EMBEDDING_MODEL,
-    contents: [query],
-    config: {
-      taskType: "RETRIEVAL_QUERY",
-      outputDimensionality: 3072,
-    },
-  });
+  const response = await withRetry(
+    () => ai.models.embedContent({
+      model: EMBEDDING_MODEL,
+      contents: [query],
+      config: { taskType: "RETRIEVAL_QUERY", outputDimensionality: 3072 },
+    }),
+    { label: "Gemini query embedding", timeoutMs: settings.requestTimeoutMs, maxAttempts: settings.retryMaxAttempts, baseDelayMs: settings.retryBaseDelayMs },
+  );
 
   if (
     !response.embeddings ||
@@ -223,13 +233,13 @@ export async function searchDocuments(
 
   const queryOptions = {
       vector: queryVector,
-      topK: 10,
+      topK: PINECONE_CANDIDATE_COUNT,
       includeMetadata: true,
   };
   const metadataFilter = buildMetadataFilter(filters);
   if (Object.keys(metadataFilter).length > 0) queryOptions.filter = metadataFilter;
 
-  const vectorResults = await index.query(queryOptions);
+  const vectorResults = await pineconeRequest("query", () => index.query(queryOptions));
 
   const pineconeMatches =
     vectorResults.matches || [];
@@ -243,7 +253,7 @@ export async function searchDocuments(
     );
   }
 
-  const bm25Matches = searchBM25(query, 10, metadataFilter);
+  const bm25Matches = searchBM25(query, BM25_CANDIDATE_COUNT, metadataFilter);
 
   console.log(
     "\nPinecone results:",

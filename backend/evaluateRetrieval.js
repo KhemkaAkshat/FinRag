@@ -5,6 +5,7 @@ import { evaluationDataset } from "./evaluationDataset.js";
 import fs from "fs/promises";
 
 const TOP_K = 5;
+const PRODUCTION_BM25_TOP_K = 20;
 const LIVE_FIXTURE_PATH = "evaluation/live-pinecone-results.json";
 const useLocal = process.argv.includes("--local");
 const useCohere = process.argv.includes("--cohere");
@@ -99,7 +100,7 @@ console.log(`Dataset: ${evaluationDataset.length} labeled questions / ${getBM25D
 console.log("Gemini: not called | Embeddings: not generated | Pinecone: not called");
 
 for (const item of evaluationDataset) {
-  const bm25Results = searchBM25(item.question, 10);
+  const bm25Results = searchBM25(item.question, PRODUCTION_BM25_TOP_K);
   const pineconeResults = livePineconeCandidates?.[item.id]
     ?.map((candidate) => {
       const document = documentsById.get(candidate.id);
@@ -190,8 +191,8 @@ console.log("Fixture candidates are filtered locally; no Pinecone or embedding c
 
 for (const filterCase of offlineFilterCases) {
   const item = evaluationDataset.find((candidate) => candidate.id === filterCase.id);
-  const bm25Unfiltered = searchBM25(item.question, 10);
-  const bm25Filtered = searchBM25(item.question, 10, filterCase.filters);
+  const bm25Unfiltered = searchBM25(item.question, PRODUCTION_BM25_TOP_K);
+  const bm25Filtered = searchBM25(item.question, PRODUCTION_BM25_TOP_K, filterCase.filters);
   const fixtureCandidates = livePineconeCandidates?.[item.id]
     ?.map((candidate) => {
       const document = documentsById.get(candidate.id);
@@ -214,3 +215,88 @@ for (const filterCase of offlineFilterCases) {
   console.log(`Unfiltered RRF: ${unfilteredMetrics.ids.join(", ") || "none"} | P@5 ${formatMetric(unfilteredMetrics.precision)} | R@5 ${formatMetric(unfilteredMetrics.recall)} | MRR ${unfilteredMetrics.mrr.toFixed(3)}`);
   console.log(`Filtered RRF:   ${filteredMetrics.ids.join(", ") || "none"} | P@5 ${formatMetric(filteredMetrics.precision)} | R@5 ${formatMetric(filteredMetrics.recall)} | MRR ${filteredMetrics.mrr.toFixed(3)}`);
 }
+
+const rrfConfigurations = [
+  { name: "P10 + B10, k=60", pineconeTopK: 10, bm25TopK: 10, rrfK: 60 },
+  { name: "P20 + B20, k=60", pineconeTopK: 20, bm25TopK: 20, rrfK: 60 },
+  { name: "P10 + B20, k=60", pineconeTopK: 10, bm25TopK: 20, rrfK: 60 },
+  { name: "P20 + B10, k=60", pineconeTopK: 20, bm25TopK: 10, rrfK: 60 },
+  { name: "P10 + B10, k=30", pineconeTopK: 10, bm25TopK: 10, rrfK: 30 },
+  { name: "P10 + B10, k=100", pineconeTopK: 10, bm25TopK: 10, rrfK: 100 },
+];
+
+function getPineconeCandidates(item) {
+  return livePineconeCandidates?.[item.id]
+    ?.map((candidate) => {
+      const document = documentsById.get(candidate.id);
+      return document ? {
+        id: candidate.id,
+        text: document.text,
+        metadata: document.metadata,
+        score: candidate.score,
+      } : null;
+    })
+    .filter(Boolean) || mockPineconeCandidates(searchBM25(item.question, 20));
+}
+
+function evaluateRrfConfiguration(configuration) {
+  const totals = { precision: 0, recall: 0, mrr: 0 };
+  let pineconeAvailable = 0;
+
+  for (const item of evaluationDataset) {
+    const pineconeCandidates = getPineconeCandidates(item);
+    const pineconeResults = pineconeCandidates.slice(0, configuration.pineconeTopK);
+    const bm25Results = searchBM25(item.question, configuration.bm25TopK);
+    const results = reciprocalRankFusion(
+      pineconeResults,
+      bm25Results,
+      TOP_K,
+      configuration.rrfK,
+    );
+    const resultMetrics = metrics(results, item.relevantChunkIds);
+
+    totals.precision += resultMetrics.precision;
+    totals.recall += resultMetrics.recall;
+    totals.mrr += resultMetrics.mrr;
+    pineconeAvailable = Math.max(pineconeAvailable, pineconeCandidates.length);
+  }
+
+  return {
+    precision: totals.precision / evaluationDataset.length,
+    recall: totals.recall / evaluationDataset.length,
+    mrr: totals.mrr / evaluationDataset.length,
+    pineconeAvailable,
+  };
+}
+
+console.log("\nRRF configuration sweep (final topK=5)");
+console.log("No Gemini, embedding, Pinecone, or external API calls were made.");
+console.log("The live fixture has 10 Pinecone candidates per question; P20 configurations are capped at 10.");
+
+const rrfSweepResults = rrfConfigurations.map((configuration) => ({
+  configuration,
+  metrics: evaluateRrfConfiguration(configuration),
+}));
+
+const sweepRows = [
+  ["Configuration", "Precision@5", "Recall@5", "MRR"],
+  ...rrfSweepResults.map(({ configuration, metrics: result }) => [
+    configuration.name,
+    formatMetric(result.precision),
+    formatMetric(result.recall),
+    result.mrr.toFixed(3),
+  ]),
+];
+const sweepWidths = sweepRows[0].map((_, column) => Math.max(...sweepRows.map((row) => row[column].length)));
+console.log(sweepRows.map((row) => row.map((value, column) => value.padEnd(sweepWidths[column])).join("  ")).join("\n"));
+
+const bestConfiguration = rrfSweepResults.reduce((best, current) => {
+  const bestScore = best.metrics.mrr + best.metrics.precision + best.metrics.recall;
+  const currentScore = current.metrics.mrr + current.metrics.precision + current.metrics.recall;
+  const bestCandidateCount = best.configuration.pineconeTopK + best.configuration.bm25TopK;
+  const currentCandidateCount = current.configuration.pineconeTopK + current.configuration.bm25TopK;
+  return currentScore > bestScore || (
+    currentScore === bestScore && currentCandidateCount < bestCandidateCount
+  ) ? current : best;
+});
+console.log(`Best configuration by combined Precision@5 + Recall@5 + MRR (lower-cost tie-break): ${bestConfiguration.configuration.name}`);

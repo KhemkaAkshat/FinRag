@@ -71,3 +71,27 @@ test("allowed CORS origins receive headers", async () => {
   assert.equal(response.status, 200);
   assert.equal(response.headers["access-control-allow-origin"], "http://localhost:3000");
 });
+
+test("chat applies basic rate limiting", async () => {
+  const app = createApp({
+    generateAnswer: answer,
+    rateLimit: { windowMs: 60000, max: 1 },
+  });
+  const first = await request(app, { method: "POST", path: "/api/chat", body: { question: "one" } });
+  const second = await request(app, { method: "POST", path: "/api/chat", body: { question: "two" } });
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 429);
+  assert.equal(second.body.error.code, "RATE_LIMITED");
+});
+
+test("upstream failures preserve safe error details", async () => {
+  const response = await request(createApp({ generateAnswer: async () => {
+    const error = new Error("provider details should not leak");
+    error.code = "UPSTREAM_QUOTA";
+    error.statusCode = 429;
+    error.publicMessage = "Upstream provider quota exceeded.";
+    throw error;
+  } }), { method: "POST", path: "/api/chat", body: { question: "test" } });
+  assert.equal(response.status, 429);
+  assert.deepEqual(response.body.error, { code: "UPSTREAM_QUOTA", message: "Upstream provider quota exceeded." });
+});

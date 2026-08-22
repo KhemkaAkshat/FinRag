@@ -1,10 +1,19 @@
 import express from "express";
 import { chatController } from "./controllers/chatController.js";
 import chatRoutes from "./routes/chatRoutes.js";
+import { createRateLimiter } from "./middleware/rateLimit.js";
 
-export function createApp({ generateAnswer, allowedOrigins = [] } = {}) {
+export function createApp({ generateAnswer, allowedOrigins = [], rateLimit } = {}) {
   const app = express();
   app.disable("x-powered-by");
+
+  app.use((req, res, next) => {
+    const startedAt = Date.now();
+    res.on("finish", () => {
+      console.log(`[request] ${req.method} ${req.path} ${res.statusCode} ${Date.now() - startedAt}ms`);
+    });
+    next();
+  });
 
   app.use((req, res, next) => {
     const origin = req.headers.origin;
@@ -22,7 +31,7 @@ export function createApp({ generateAnswer, allowedOrigins = [] } = {}) {
 
   app.use(express.json({ limit: "32kb" }));
   app.get("/api/health", (req, res) => res.json({ success: true, data: { status: "ok", message: "FinRAG backend is running" } }));
-  app.use("/api/chat", chatRoutes({ generateAnswer }));
+  app.use("/api/chat", createRateLimiter(rateLimit), chatRoutes({ generateAnswer }));
 
   app.use((req, res) => res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Route not found." } }));
   app.use((error, req, res, next) => {
@@ -30,9 +39,11 @@ export function createApp({ generateAnswer, allowedOrigins = [] } = {}) {
     if (error instanceof SyntaxError && "body" in error) {
       return res.status(400).json({ success: false, error: { code: "INVALID_JSON", message: "Request body must be valid JSON." } });
     }
-    console.error("Unhandled API error:", error);
-    return res.status(error.statusCode || 500).json({ success: false, error: { code: "INTERNAL_ERROR", message: "Unable to process the request." } });
+    const statusCode = error.statusCode || 500;
+    const code = error.code || "INTERNAL_ERROR";
+    const message = error.publicMessage || (statusCode === 500 ? "Unable to process the request." : "External service unavailable.");
+    console.error(`API error ${code} (${statusCode})`);
+    return res.status(statusCode).json({ success: false, error: { code, message } });
   });
   return app;
 }
-

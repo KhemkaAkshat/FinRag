@@ -21,6 +21,12 @@ test("BM25 searches without calling Gemini and applies metadata filters", () => 
   assert.ok(results.every((result) => typeof result.bm25Score === "number"));
 });
 
+test("BM25 supports the production candidate count of 20", () => {
+  const results = searchBM25("What are Apple's main business risks?", 20);
+  assert.equal(results.length, 20);
+  assert.ok(results.every((result) => typeof result.bm25Score === "number"));
+});
+
 test("BM25 applies all supported metadata filters exactly", () => {
   const results = searchBM25("What are Apple's main business risks?", 10, {
     ticker: "AAPL",

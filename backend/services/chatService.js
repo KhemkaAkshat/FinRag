@@ -4,16 +4,21 @@ import { GoogleGenAI } from "@google/genai";
 
 import { searchDocuments } from "./ragService.js";
 import { extractQueryFilters } from "./queryUnderstandingService.js";
+import { getOperationalSettings } from "../config.js";
+import { createSingleFlightCache, createTtlCache, withRetry } from "./resilienceService.js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
 const CHAT_MODEL = "gemini-3.5-flash";
+const settings = getOperationalSettings();
+const answerCache = createSingleFlightCache({
+  cache: createTtlCache({ ttlMs: settings.cacheTtlMs, maxEntries: settings.cacheMaxEntries }),
+  keyFor: (question) => question.trim().replace(/\s+/g, " ").toLowerCase(),
+});
 
-export async function generateAnswer(
-  question
-) {
+async function generateAnswerUncached(question) {
   console.log("\nSearching knowledge base...");
 
   const filters = extractQueryFilters(question);
@@ -64,11 +69,15 @@ ${context}
     "Generating answer with Gemini..."
   );
 
-  const response =
-    await ai.models.generateContent({
-      model: CHAT_MODEL,
-      contents: prompt,
-    });
+  const response = await withRetry(
+    () => ai.models.generateContent({ model: CHAT_MODEL, contents: prompt }),
+    {
+      label: "Gemini generation",
+      timeoutMs: settings.requestTimeoutMs,
+      maxAttempts: settings.retryMaxAttempts,
+      baseDelayMs: settings.retryBaseDelayMs,
+    },
+  );
 
   const answer =
     response.text || 
@@ -100,4 +109,12 @@ ${context}
     answer,
     sources,
   };
+}
+
+export function clearAnswerCache() {
+  answerCache.clear();
+}
+
+export async function generateAnswer(question) {
+  return answerCache.getOrCreate(question, () => generateAnswerUncached(question));
 }
