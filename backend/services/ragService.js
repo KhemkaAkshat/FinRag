@@ -191,7 +191,7 @@ export async function storeDocuments(documents) {
 
   return uploaded;
 }
-async function generateQueryEmbedding(query) {
+export async function generateQueryEmbedding(query) {
   const response = await ai.models.embedContent({
     model: EMBEDDING_MODEL,
     contents: [query],
@@ -255,10 +255,14 @@ export async function searchDocuments(
     bm25Matches.length
   );
 
-  const hybridResults = reciprocalRankFusion(pineconeMatches, bm25Matches, topK);
+  const hybridResults = reciprocalRankFusion(
+    pineconeMatches,
+    bm25Matches,
+    topK,
+  );
 
   console.log(
-    "Hybrid results:",
+    "RRF results:",
     hybridResults.length
   );
 

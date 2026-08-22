@@ -3,6 +3,7 @@ import "dotenv/config";
 import { GoogleGenAI } from "@google/genai";
 
 import { searchDocuments } from "./ragService.js";
+import { extractQueryFilters } from "./queryUnderstandingService.js";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -15,8 +16,9 @@ export async function generateAnswer(
 ) {
   console.log("\nSearching knowledge base...");
 
+  const filters = extractQueryFilters(question);
   const matches =
-    await searchDocuments(question, 5);
+    await searchDocuments(question, 5, filters);
 
   if (matches.length === 0) {
     return {

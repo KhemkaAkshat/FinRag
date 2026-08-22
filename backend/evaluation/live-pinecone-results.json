@@ -1,0 +1,341 @@
+{
+  "generatedAt": "2026-08-21T12:57:40.841Z",
+  "questions": {
+    "products-services": [
+      {
+        "id": "finrag-1",
+        "score": 0.766738892
+      },
+      {
+        "id": "finrag-0",
+        "score": 0.766365111
+      },
+      {
+        "id": "finrag-2",
+        "score": 0.756721556
+      },
+      {
+        "id": "finrag-136",
+        "score": 0.747688353
+      },
+      {
+        "id": "finrag-105",
+        "score": 0.736900389
+      },
+      {
+        "id": "finrag-4",
+        "score": 0.722107
+      },
+      {
+        "id": "finrag-3",
+        "score": 0.720550597
+      },
+      {
+        "id": "finrag-104",
+        "score": 0.72038281
+      },
+      {
+        "id": "finrag-106",
+        "score": 0.716835
+      },
+      {
+        "id": "finrag-122",
+        "score": 0.706939757
+      }
+    ],
+    "business-risks": [
+      {
+        "id": "finrag-30",
+        "score": 0.791023374
+      },
+      {
+        "id": "finrag-36",
+        "score": 0.784607053
+      },
+      {
+        "id": "finrag-25",
+        "score": 0.774749875
+      },
+      {
+        "id": "finrag-18",
+        "score": 0.773971677
+      },
+      {
+        "id": "finrag-165",
+        "score": 0.773697
+      },
+      {
+        "id": "finrag-70",
+        "score": 0.773239255
+      },
+      {
+        "id": "finrag-27",
+        "score": 0.772071958
+      },
+      {
+        "id": "finrag-19",
+        "score": 0.771606565
+      },
+      {
+        "id": "finrag-48",
+        "score": 0.770683408
+      },
+      {
+        "id": "finrag-5",
+        "score": 0.769386411
+      }
+    ],
+    "net-sales": [
+      {
+        "id": "finrag-105",
+        "score": 0.718582153
+      },
+      {
+        "id": "finrag-104",
+        "score": 0.714042723
+      },
+      {
+        "id": "finrag-169",
+        "score": 0.699134827
+      },
+      {
+        "id": "finrag-137",
+        "score": 0.691940367
+      },
+      {
+        "id": "finrag-136",
+        "score": 0.691337585
+      },
+      {
+        "id": "finrag-103",
+        "score": 0.688240111
+      },
+      {
+        "id": "finrag-168",
+        "score": 0.68611145
+      },
+      {
+        "id": "finrag-122",
+        "score": 0.685203552
+      },
+      {
+        "id": "finrag-170",
+        "score": 0.685157835
+      },
+      {
+        "id": "finrag-12",
+        "score": 0.68334204
+      }
+    ],
+    "research-development": [
+      {
+        "id": "finrag-108",
+        "score": 0.742805481
+      },
+      {
+        "id": "finrag-170",
+        "score": 0.724502623
+      },
+      {
+        "id": "finrag-122",
+        "score": 0.722183228
+      },
+      {
+        "id": "finrag-27",
+        "score": 0.713615477
+      },
+      {
+        "id": "finrag-151",
+        "score": 0.713439941
+      },
+      {
+        "id": "finrag-152",
+        "score": 0.711257935
+      },
+      {
+        "id": "finrag-124",
+        "score": 0.695762694
+      },
+      {
+        "id": "finrag-112",
+        "score": 0.69569397
+      },
+      {
+        "id": "finrag-148",
+        "score": 0.689491332
+      },
+      {
+        "id": "finrag-100",
+        "score": 0.688522398
+      }
+    ],
+    "competition": [
+      {
+        "id": "finrag-30",
+        "score": 0.790092587
+      },
+      {
+        "id": "finrag-5",
+        "score": 0.786216855
+      },
+      {
+        "id": "finrag-4",
+        "score": 0.75968945
+      },
+      {
+        "id": "finrag-27",
+        "score": 0.752792478
+      },
+      {
+        "id": "finrag-6",
+        "score": 0.750702
+      },
+      {
+        "id": "finrag-7",
+        "score": 0.747413754
+      },
+      {
+        "id": "finrag-43",
+        "score": 0.738556
+      },
+      {
+        "id": "finrag-65",
+        "score": 0.726433
+      },
+      {
+        "id": "finrag-91",
+        "score": 0.724884093
+      },
+      {
+        "id": "finrag-0",
+        "score": 0.719795287
+      }
+    ],
+    "supply-chain": [
+      {
+        "id": "finrag-36",
+        "score": 0.799156308
+      },
+      {
+        "id": "finrag-166",
+        "score": 0.783218443
+      },
+      {
+        "id": "finrag-34",
+        "score": 0.770103514
+      },
+      {
+        "id": "finrag-8",
+        "score": 0.764068663
+      },
+      {
+        "id": "finrag-165",
+        "score": 0.763771117
+      },
+      {
+        "id": "finrag-25",
+        "score": 0.761688292
+      },
+      {
+        "id": "finrag-35",
+        "score": 0.74923712
+      },
+      {
+        "id": "finrag-19",
+        "score": 0.745300353
+      },
+      {
+        "id": "finrag-20",
+        "score": 0.741760314
+      },
+      {
+        "id": "finrag-9",
+        "score": 0.736633301
+      }
+    ],
+    "human-capital": [
+      {
+        "id": "finrag-13",
+        "score": 0.770210326
+      },
+      {
+        "id": "finrag-12",
+        "score": 0.721466124
+      },
+      {
+        "id": "finrag-47",
+        "score": 0.695518553
+      },
+      {
+        "id": "finrag-161",
+        "score": 0.662376463
+      },
+      {
+        "id": "finrag-0",
+        "score": 0.661872923
+      },
+      {
+        "id": "finrag-163",
+        "score": 0.660987914
+      },
+      {
+        "id": "finrag-88",
+        "score": 0.660461485
+      },
+      {
+        "id": "finrag-131",
+        "score": 0.658378661
+      },
+      {
+        "id": "finrag-1",
+        "score": 0.653236389
+      },
+      {
+        "id": "finrag-96",
+        "score": 0.65259558
+      }
+    ],
+    "revenue-recognition": [
+      {
+        "id": "finrag-134",
+        "score": 0.801467955
+      },
+      {
+        "id": "finrag-136",
+        "score": 0.791297913
+      },
+      {
+        "id": "finrag-135",
+        "score": 0.771774292
+      },
+      {
+        "id": "finrag-131",
+        "score": 0.760856688
+      },
+      {
+        "id": "finrag-137",
+        "score": 0.748542845
+      },
+      {
+        "id": "finrag-2",
+        "score": 0.744789124
+      },
+      {
+        "id": "finrag-122",
+        "score": 0.73714447
+      },
+      {
+        "id": "finrag-0",
+        "score": 0.736022949
+      },
+      {
+        "id": "finrag-133",
+        "score": 0.733802855
+      },
+      {
+        "id": "finrag-105",
+        "score": 0.731323242
+      }
+    ]
+  }
+}

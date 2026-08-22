@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { reciprocalRankFusion, matchesMetadata } from "./retrievalService.js";
+import { buildMetadataFilter, reciprocalRankFusion, matchesMetadata } from "./retrievalService.js";
 
 const vector = (id, score, metadata = {}, text = `vector ${id}`) => ({ id, score, metadata, text });
 const lexical = (id, score, metadata = {}, text = `bm25 ${id}`) => ({ id, bm25Score: score, metadata, text });
@@ -53,3 +53,16 @@ test("metadata matching uses exact optional fields", () => {
   assert.equal(matchesMetadata({ ticker: "AAPL" }, {}), true);
 });
 
+test("metadata filters pass every supported field unchanged to both retrievers", () => {
+  const filters = {
+    ticker: "AAPL",
+    company: "Apple Inc.",
+    filingType: "10-K",
+    filingDate: "2025-10-31",
+    reportDate: "2025-09-27",
+    item: "1A",
+    section: "Item 1A",
+  };
+
+  assert.deepEqual(buildMetadataFilter(filters), filters);
+});
