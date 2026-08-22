@@ -6,11 +6,7 @@ import { Pinecone } from "@pinecone-database/pinecone";
 import { searchBM25, loadBM25Index } from "./bm25Service.js";
 import { buildMetadataFilter, reciprocalRankFusion } from "./retrievalService.js";
 import { getOperationalSettings } from "../config.js";
-import { withRetry } from "./resilienceService.js";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+import { UpstreamServiceError, withRetry } from "./resilienceService.js";
 
 const EMBEDDING_MODEL = "gemini-embedding-001";
 const PINECONE_CANDIDATE_COUNT = 10;
@@ -22,11 +18,27 @@ const splitter = new RecursiveCharacterTextSplitter({
   chunkOverlap: 200,
 });
 
-const pinecone = new Pinecone({
-  apiKey: process.env.PINECONE_API_KEY,
-});
+let ai;
+let index;
 
-const index = pinecone.index(process.env.PINECONE_INDEX_NAME);
+function getGeminiClient() {
+  if (ai) return ai;
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    throw new UpstreamServiceError("Gemini credentials are not configured.", { code: "CONFIGURATION_ERROR", statusCode: 503 });
+  }
+  ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  return ai;
+}
+
+function getPineconeIndex() {
+  if (index) return index;
+  if (!process.env.PINECONE_API_KEY?.trim() || !process.env.PINECONE_INDEX_NAME?.trim()) {
+    throw new UpstreamServiceError("Pinecone credentials are not configured.", { code: "CONFIGURATION_ERROR", statusCode: 503 });
+  }
+  const pinecone = new Pinecone({ apiKey: process.env.PINECONE_API_KEY });
+  index = pinecone.index(process.env.PINECONE_INDEX_NAME);
+  return index;
+}
 
 function pineconeRequest(label, operation) {
   return withRetry(operation, {
@@ -60,7 +72,7 @@ export async function createRagDocuments(sections, metadata) {
 
 async function generateEmbeddings(texts) {
   const response = await withRetry(
-    () => ai.models.embedContent({
+    () => getGeminiClient().models.embedContent({
       model: EMBEDDING_MODEL,
       contents: texts,
       config: { taskType: "RETRIEVAL_DOCUMENT", outputDimensionality: 3072 },
@@ -86,7 +98,7 @@ async function getExistingRecordIds(ids) {
       continue;
     }
 
-    const result = await pineconeRequest("fetch", () => index.fetch({ ids: batch }));
+    const result = await pineconeRequest("fetch", () => getPineconeIndex().fetch({ ids: batch }));
 
     for (const id of Object.keys(result.records || {})) {
       existingIds.add(id);
@@ -186,7 +198,7 @@ export async function storeDocuments(documents) {
 
     console.log("Uploading to Pinecone...");
 
-    await pineconeRequest("upsert", () => index.upsert({ records: pineconeRecords }));
+    await pineconeRequest("upsert", () => getPineconeIndex().upsert({ records: pineconeRecords }));
 
     uploaded += batch.length;
 
@@ -195,7 +207,7 @@ export async function storeDocuments(documents) {
 
   console.log("\nIngestion complete.");
 
-  const stats = await pineconeRequest("describe index", () => index.describeIndexStats());
+  const stats = await pineconeRequest("describe index", () => getPineconeIndex().describeIndexStats());
 
   console.log("Pinecone stats:", stats);
 
@@ -203,7 +215,7 @@ export async function storeDocuments(documents) {
 }
 export async function generateQueryEmbedding(query) {
   const response = await withRetry(
-    () => ai.models.embedContent({
+    () => getGeminiClient().models.embedContent({
       model: EMBEDDING_MODEL,
       contents: [query],
       config: { taskType: "RETRIEVAL_QUERY", outputDimensionality: 3072 },
@@ -239,7 +251,7 @@ export async function searchDocuments(
   const metadataFilter = buildMetadataFilter(filters);
   if (Object.keys(metadataFilter).length > 0) queryOptions.filter = metadataFilter;
 
-  const vectorResults = await pineconeRequest("query", () => index.query(queryOptions));
+  const vectorResults = await pineconeRequest("query", () => getPineconeIndex().query(queryOptions));
 
   const pineconeMatches =
     vectorResults.matches || [];

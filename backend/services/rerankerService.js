@@ -2,9 +2,14 @@ import "dotenv/config";
 import { CohereClientV2 } from "cohere-ai";
 
 const COHERE_MODEL = "rerank-v4.0-fast";
-const cohereClient = process.env.COHERE_API_KEY
-  ? new CohereClientV2({ token: process.env.COHERE_API_KEY })
-  : null;
+let cohereClient;
+
+function getCohereClient() {
+  if (cohereClient) return cohereClient;
+  if (!process.env.COHERE_API_KEY?.trim()) return null;
+  cohereClient = new CohereClientV2({ token: process.env.COHERE_API_KEY });
+  return cohereClient;
+}
 
 const STOP_WORDS = new Set([
   "a", "an", "and", "are", "as", "at", "be", "by", "for", "from",
@@ -98,7 +103,7 @@ function cohereDocumentText(document) {
   ].filter(Boolean).join("\n");
 }
 
-export async function rerankWithCohere(query, documents = [], topK = 5, client = cohereClient) {
+export async function rerankWithCohere(query, documents = [], topK = 5, client = getCohereClient()) {
   if (!client) {
     throw new Error("COHERE_API_KEY is not configured.");
   }
@@ -119,7 +124,7 @@ export async function rerankWithCohere(query, documents = [], topK = 5, client =
 }
 
 export async function rerank(query, documents = [], topK = 5) {
-  if (!cohereClient) return rerankLocal(query, documents, topK);
+  if (!getCohereClient()) return rerankLocal(query, documents, topK);
 
   try {
     return await rerankWithCohere(query, documents, topK);

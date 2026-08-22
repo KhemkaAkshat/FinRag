@@ -5,14 +5,23 @@ import { GoogleGenAI } from "@google/genai";
 import { searchDocuments } from "./ragService.js";
 import { extractQueryFilters } from "./queryUnderstandingService.js";
 import { getOperationalSettings } from "../config.js";
-import { createSingleFlightCache, createTtlCache, withRetry } from "./resilienceService.js";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+import { createSingleFlightCache, createTtlCache, UpstreamServiceError, withRetry } from "./resilienceService.js";
 
 const CHAT_MODEL = "gemini-3.5-flash";
 const settings = getOperationalSettings();
+let ai;
+
+function getGeminiClient() {
+  if (ai) return ai;
+  if (!process.env.GEMINI_API_KEY?.trim()) {
+    throw new UpstreamServiceError("Gemini credentials are not configured.", {
+      code: "CONFIGURATION_ERROR",
+      statusCode: 503,
+    });
+  }
+  ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  return ai;
+}
 const answerCache = createSingleFlightCache({
   cache: createTtlCache({ ttlMs: settings.cacheTtlMs, maxEntries: settings.cacheMaxEntries }),
   keyFor: (question) => question.trim().replace(/\s+/g, " ").toLowerCase(),
@@ -70,7 +79,7 @@ ${context}
   );
 
   const response = await withRetry(
-    () => ai.models.generateContent({ model: CHAT_MODEL, contents: prompt }),
+    () => getGeminiClient().models.generateContent({ model: CHAT_MODEL, contents: prompt }),
     {
       label: "Gemini generation",
       timeoutMs: settings.requestTimeoutMs,
