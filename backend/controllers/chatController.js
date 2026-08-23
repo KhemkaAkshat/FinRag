@@ -25,6 +25,12 @@ export function chatController({ generateAnswer: injectedGenerator } = {}) {
       }
 
       const result = await answerGenerator(trimmedQuestion);
+      if (["COMPANY_NOT_INDEXED", "AMBIGUOUS_COMPANY"].includes(result?.code)) {
+        return res.status(409).json({ success: false, error: { code: result.code, message: result.message, details: result.details } });
+      }
+      if (result?.code === "COMPANY_NOT_FOUND") {
+        return res.status(404).json({ success: false, error: { code: result.code, message: result.message, details: result.details } });
+      }
       return res.status(200).json({ success: true, data: result });
     } catch (error) {
       return next(error);

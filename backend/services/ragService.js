@@ -114,7 +114,7 @@ export async function storeDocuments(documents) {
   console.log("Documents:", documents.length);
 
   const recordsToCreate = documents.map((document, index) => ({
-    id: `finrag-${index}`,
+    id: document.metadata?.documentId || document.id || `finrag-${index}`,
     document,
   }));
 
@@ -188,6 +188,8 @@ export async function storeDocuments(documents) {
           filingType: document.metadata.filingType,
           filingDate: document.metadata.filingDate,
           reportDate: document.metadata.reportDate,
+          accessionNumber: document.metadata.accessionNumber,
+          primaryDocument: document.metadata.primaryDocument,
           sourceUrl: document.metadata.sourceUrl,
           item: document.metadata.item,
           section: document.metadata.section,
@@ -212,6 +214,41 @@ export async function storeDocuments(documents) {
   console.log("Pinecone stats:", stats);
 
   return uploaded;
+}
+
+export async function getPineconeCompanyStats(company) {
+  const filter = company?.cik ? { cik: company.cik } : company?.ticker ? { ticker: company.ticker } : {};
+  if (!Object.keys(filter).length) return null;
+  try {
+    return await pineconeRequest("company stats", () => getPineconeIndex().describeIndexStats({ filter }));
+  } catch (error) {
+    const filteredStatsUnsupported = /do not support describing index stats with metadata filtering/i.test(String(error?.cause?.message || error?.message || ""));
+    if (filteredStatsUnsupported) {
+      console.warn("[pinecone] filtered company stats unsupported; using unfiltered index stats", {
+        indexName: process.env.PINECONE_INDEX_NAME || "<missing>",
+        filter,
+      });
+      const stats = await pineconeRequest("index stats", () => getPineconeIndex().describeIndexStats());
+      return { ...stats, filterSupported: false };
+    }
+    console.error("[pinecone] company stats diagnostic", {
+      indexName: process.env.PINECONE_INDEX_NAME || "<missing>",
+      filter,
+      error: {
+        name: error?.name,
+        message: error?.message,
+        code: error?.code,
+        status: error?.status || error?.statusCode,
+      },
+      cause: error?.cause ? {
+        name: error.cause.name,
+        message: error.cause.message,
+        code: error.cause.code,
+        status: error.cause.status || error.cause.statusCode,
+      } : undefined,
+    });
+    throw error;
+  }
 }
 export async function generateQueryEmbedding(query) {
   const response = await withRetry(

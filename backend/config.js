@@ -28,8 +28,10 @@ export function getConfig(env = process.env) {
     throw new Error(`Missing required environment variables: ${missing.join(", ")}`);
   }
 
-  const allowedOrigins = (env.FRONTEND_ORIGINS || env.FRONTEND_URL || "http://localhost:3000")
-    .split(",").map((origin) => origin.trim()).filter(Boolean);
+  const configuredOrigins = (env.FRONTEND_ORIGINS || env.FRONTEND_URL || "")
+    .split(",").map((origin) => origin.trim().replace(/\/$/, "")).filter(Boolean);
+  const localOrigins = env.NODE_ENV === "production" ? [] : ["http://localhost:3000", "http://127.0.0.1:3000"];
+  const allowedOrigins = [...new Set([...configuredOrigins, ...localOrigins])];
 
   const port = positiveInteger(env, "PORT", 5000, { min: 1, max: 65535 });
   const host = (env.HOST || "0.0.0.0").trim();

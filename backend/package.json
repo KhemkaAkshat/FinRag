@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "ingest:company": "node ingestCompany.js",
     "collect:live-retrieval": "node collectLiveRetrieval.js",
     "test": "node --test"
   },

@@ -1,9 +1,12 @@
 import { createApp } from "./app.js";
 import { getConfig } from "./config.js";
+import { getRedisClient } from "./services/redisService.js";
 
 const config = getConfig();
 const app = createApp({
   allowedOrigins: config.allowedOrigins,
+  auth: { required: Boolean(process.env.CLERK_SECRET_KEY) },
+  redis: getRedisClient(),
   rateLimit: { windowMs: config.rateLimitWindowMs, max: config.rateLimitMax },
 });
 

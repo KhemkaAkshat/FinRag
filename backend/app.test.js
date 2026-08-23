@@ -58,6 +58,20 @@ test("chat maps service failures through the centralized handler", async () => {
   assert.deepEqual(response.body, { success: false, error: { code: "INTERNAL_ERROR", message: "Unable to process the request." } });
 });
 
+test("chat returns a structured company-not-indexed response", async () => {
+  const response = await request(createApp({ generateAnswer: async () => ({ code: "COMPANY_NOT_INDEXED", message: "Company is not indexed.", details: { company: { cik: "0000000001", ticker: "TEST" }, indexed: false } }) }), { method: "POST", path: "/api/chat", body: { question: "What is Test revenue?" } });
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, "COMPANY_NOT_INDEXED");
+  assert.equal(response.body.error.details.company.ticker, "TEST");
+});
+
+test("chat returns ambiguous company candidates without starting retrieval", async () => {
+  const response = await request(createApp({ generateAnswer: async () => ({ code: "AMBIGUOUS_COMPANY", message: "Choose a company.", details: { candidates: [{ name: "Acme Holdings, Inc.", ticker: "ACMH", cik: "0000000001" }] } }) }), { method: "POST", path: "/api/chat", body: { question: "Tell me about Acme" } });
+  assert.equal(response.status, 409);
+  assert.equal(response.body.error.code, "AMBIGUOUS_COMPANY");
+  assert.equal(response.body.error.details.candidates[0].ticker, "ACMH");
+});
+
 test("invalid JSON and unknown routes return consistent errors", async () => {
   const invalid = await request(createApp({ generateAnswer: answer }), { method: "POST", path: "/api/chat", rawBody: "{not-json", headers: { "content-type": "application/json" } });
   assert.equal(invalid.status, 400);

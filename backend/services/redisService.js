@@ -18,12 +18,14 @@ export function getRedisClient({ url = process.env.REDIS_URL } = {}) {
   return sharedClient;
 }
 
-export function createRedisCache({ client = getRedisClient(), prefix = process.env.REDIS_CACHE_PREFIX || "finrag:cache:", ttlMs = 60000 } = {}) {
+export function createRedisCache({ client, prefix = process.env.REDIS_CACHE_PREFIX || "finrag:cache:", ttlMs = 60000 } = {}) {
+  const resolveClient = () => client === undefined ? getRedisClient() : client;
   return {
     async get(key) {
       try {
-        if (!client?.isReady) return undefined;
-        const value = await client.get(`${prefix}${key}`);
+        const activeClient = resolveClient();
+        if (!activeClient?.isReady) return undefined;
+        const value = await activeClient.get(`${prefix}${key}`);
         return value === null ? undefined : JSON.parse(value);
       } catch (error) {
         console.warn(`[redis] cache read failed: ${error.message}`);
@@ -32,7 +34,8 @@ export function createRedisCache({ client = getRedisClient(), prefix = process.e
     },
     async set(key, value) {
       try {
-        if (client?.isReady) await client.set(`${prefix}${key}`, JSON.stringify(value), { PX: ttlMs });
+        const activeClient = resolveClient();
+        if (activeClient?.isReady) await activeClient.set(`${prefix}${key}`, JSON.stringify(value), { PX: ttlMs });
       } catch (error) {
         console.warn(`[redis] cache write failed: ${error.message}`);
       }

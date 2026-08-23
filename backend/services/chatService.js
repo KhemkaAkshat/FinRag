@@ -6,7 +6,9 @@ import { searchDocuments } from "./ragService.js";
 import { extractQueryFilters } from "./queryUnderstandingService.js";
 import { getOperationalSettings } from "../config.js";
 import { createSingleFlightCache, createTtlCache, UpstreamServiceError, withRetry } from "./resilienceService.js";
-import { createRedisCache, getRedisClient } from "./redisService.js";
+import { createRedisCache } from "./redisService.js";
+import { resolveCompanyReference } from "./secService.js";
+import { getIndexedCompanyStatus } from "./companyIndexService.js";
 
 const CHAT_MODEL = "gemini-3.5-flash";
 const settings = getOperationalSettings();
@@ -24,7 +26,7 @@ function getGeminiClient() {
   return ai;
 }
 const memoryCache = createTtlCache({ ttlMs: settings.cacheTtlMs, maxEntries: settings.cacheMaxEntries });
-const remoteCache = createRedisCache({ client: getRedisClient(), ttlMs: settings.cacheTtlMs });
+const remoteCache = createRedisCache({ ttlMs: settings.cacheTtlMs });
 const answerCache = createSingleFlightCache({
   cache: {
     async get(key) {
@@ -44,6 +46,41 @@ async function generateAnswerUncached(question) {
   console.log("\nSearching knowledge base...");
 
   const filters = extractQueryFilters(question);
+  const companyResolution = await resolveCompanyReference(question);
+  if (companyResolution.status === "AMBIGUOUS") {
+    return {
+      code: "AMBIGUOUS_COMPANY",
+      message: "Several SEC companies match that description. Select the company you meant before searching.",
+      answer: "Several SEC companies match that description. Select the company you meant before searching.",
+      sources: [],
+      details: { query: question, candidates: companyResolution.candidates },
+    };
+  }
+  if (companyResolution.status === "NOT_FOUND") {
+    return {
+      code: "COMPANY_NOT_FOUND",
+      message: "I could not match that company to the SEC company directory.",
+      answer: "I could not match that company to the SEC company directory. Check the company name or ticker and try again.",
+      sources: [],
+      details: { query: question },
+    };
+  }
+  const selectedCompany = companyResolution.status === "RESOLVED" ? companyResolution.company : null;
+  if (selectedCompany) {
+    const companyStatus = await getIndexedCompanyStatus(selectedCompany);
+    if (!companyStatus.indexed) {
+      return {
+        code: "COMPANY_NOT_INDEXED",
+        message: `${selectedCompany.name} (${selectedCompany.ticker}) has been identified, but its SEC filings are not indexed in FinRAG yet.`,
+        answer: `${selectedCompany.name} (${selectedCompany.ticker}) has been identified, but its SEC filings are not indexed in FinRAG yet. An administrator must explicitly ingest the latest 10-K or 10-Q before it can be searched.`,
+        sources: [],
+        details: { company: selectedCompany, status: "NOT_READY", indexed: false },
+      };
+    }
+    filters.company = selectedCompany.name;
+    filters.ticker = selectedCompany.ticker;
+    filters.cik = selectedCompany.cik;
+  }
   const matches =
     await searchDocuments(question, 5, filters);
 
