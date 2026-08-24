@@ -52,6 +52,12 @@
 .company-candidate-list { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:8px; margin-top:12px; }
 .company-candidate { display:flex; flex-direction:column; gap:4px; padding:11px; border:1px solid var(--line); text-align:left; color:var(--ink); background:var(--paper); cursor:pointer; }
 .company-candidate:hover { border-color:var(--copper); background:var(--white); }
+.company-candidate.selected { border-color:var(--copper); box-shadow:inset 3px 0 var(--copper); background:var(--white); }
+.company-candidate[aria-label="company-action"] { color:var(--copper-dark); font-family:var(--mono); }
+.candidate-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.candidate-secondary { padding:8px 10px; border:1px solid var(--line); color:var(--muted); background:transparent; font:10px var(--mono); cursor:pointer; }
+.candidate-secondary:hover:not(:disabled) { border-color:var(--copper); color:var(--copper-dark); }
+.candidate-secondary:disabled { cursor:wait; opacity:.55; }
 .company-candidate span { font-weight:700; font-size:13px; }
 .company-candidate small { font:10px var(--mono); color:var(--muted); }
 .retry-error { margin-left:auto; color:var(--copper-dark); }

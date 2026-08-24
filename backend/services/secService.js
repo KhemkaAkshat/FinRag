@@ -108,11 +108,11 @@ export function resolveCompanyInDirectory(question, companies = []) {
 export async function resolveCompanyReference(question, options = {}) {
   const candidates = companyCandidatesFromQuestion(question);
   const ranked = rankCompanyMatches(question, await getCompanyDirectory(options));
-  if (!ranked.length) return { status: candidates.length ? "NOT_FOUND" : "NONE", query: question, candidates: [] };
+  if (!ranked.length) return { status: candidates.length ? "NOT_FOUND" : "NONE", query: question, searchTerm: candidates[0] || "", candidates: [] };
   const [top, second] = ranked;
   const similarlyStrong = second && top.priority < 2800 && second.priority === top.priority && top.score - second.score <= 50;
-  if (similarlyStrong) return { status: "AMBIGUOUS", query: question, candidates: ranked.slice(0, 5).map(({ company }) => company) };
-  return { status: "RESOLVED", query: question, company: top.company, matchType: top.matchType, candidates: [top.company] };
+  if (similarlyStrong) return { status: "AMBIGUOUS", query: question, searchTerm: candidates[0] || "", candidates: ranked.slice(0, 5).map(({ company }) => company) };
+  return { status: "RESOLVED", query: question, searchTerm: candidates[0] || "", company: top.company, matchType: top.matchType, candidates: ranked.slice(0, 5).map(({ company }) => company) };
 }
 
 export async function getCompanyFilings(cik, { fetchImpl = fetch } = {}) {

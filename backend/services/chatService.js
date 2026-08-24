@@ -74,7 +74,7 @@ async function generateAnswerUncached(question) {
         message: `${selectedCompany.name} (${selectedCompany.ticker}) has been identified, but its SEC filings are not indexed in FinRAG yet.`,
         answer: `${selectedCompany.name} (${selectedCompany.ticker}) has been identified, but its SEC filings are not indexed in FinRAG yet. An administrator must explicitly ingest the latest 10-K or 10-Q before it can be searched.`,
         sources: [],
-        details: { company: selectedCompany, status: "NOT_READY", indexed: false },
+        details: { company: selectedCompany, candidates: companyResolution.candidates, searchTerm: companyResolution.searchTerm, query: question, status: "NOT_READY", indexed: false },
       };
     }
     filters.company = selectedCompany.name;
